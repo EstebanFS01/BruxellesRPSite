@@ -1,0 +1,90 @@
+{
+  "project_name": "Bruxelles RôlePlay",
+  "theme": "dark",
+  "archetype": "Archetype 5: Luxury",
+  "description": "Premium FiveM RP community site with modern, immersive, cinematic aesthetics.",
+  "design_context": "hybrid_fullstack",
+  "colors": {
+    "background": "#050608",
+    "surface_main": "#0C1014",
+    "surface_secondary": "#13181E",
+    "surface_glass": "rgba(12, 16, 20, 0.65)",
+    "primary": "#E4B823",
+    "primary_hover": "#FCD34D",
+    "secondary": "#21262D",
+    "accent_danger": "#DC2626",
+    "text_primary": "#F8F9FA",
+    "text_secondary": "#8B949E",
+    "border": "#2D333B"
+  },
+  "typography": {
+    "fonts": {
+      "headings": "Outfit, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tighter font-bold",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-semibold",
+      "h3": "text-xl sm:text-2xl font-medium",
+      "body": "text-base leading-relaxed",
+      "labels": "text-xs uppercase tracking-[0.2em] font-medium"
+    }
+  },
+  "layout_strategy": {
+    "marketing": "MODE A: 'Tetris' Grid. Generous spacing (p-12, p-16, gap-8). Asymmetry and overlapping elements. Direct children for grid items.",
+    "dashboard": "MODE B: 'Control Room' Grid. Strict hierarchy, dense spacing (p-4, p-6, gap-4). Every pixel utilized."
+  },
+  "surface_strategies": {
+    "header": "Crystal Glass: bg-black/60 backdrop-blur-xl backdrop-saturate-150 border-b border-white/10 shadow-sm z-50 sticky top-0.",
+    "cards_marketing": "Cardless or flat with 1px border-white/10. Avoid massive shadows. Hover: -translate-y-1 with subtle inner glow.",
+    "admin_panels": "Grid Borders: border-collapse style, 1px border-white/10 on right/bottom of grid items. Raw, technical look."
+  },
+  "component_instructions": {
+    "buttons": "Primary: bg-[#E4B823] text-black hover:bg-[#FCD34D]. Secondary: bg-white/5 text-white border border-white/10 hover:bg-white/10. Include data-testid.",
+    "forms": "Use customized Shadcn UI. Dark inputs, bg-transparent, border-white/10, focus:border-[#E4B823] focus:ring-1 focus:ring-[#E4B823]/50.",
+    "hero_overlay": "Gradient overlay over hero image: bg-gradient-to-r from-black/80 via-black/50 to-transparent. Never blanket pure black/50.",
+    "marquee": "Use react-fast-marquee for server stats. 'Editorial Ribbon' style: Pale/dark background with JetBrains Mono, huge gaps (gap-24).",
+    "icons": "Use @phosphor-icons/react (Duotone weight for marketing, Regular for admin) or lucide-react."
+  },
+  "motion_and_interactions": {
+    "library": "framer-motion",
+    "hover_states": "All interactive elements must explicitly change state. e.g., hover:border-white/30 hover:text-white transition-colors duration-200.",
+    "scroll_animations": "Staggered entrances for Bento grids.",
+    "accessibility": "Respect prefers-reduced-motion. Use aria-hidden on decorative elements."
+  },
+  "testing": {
+    "rules": "All interactive elements MUST include data-testid in kebab-case based on role (e.g., data-testid='login-submit-button', data-testid='hero-join-server')."
+  },
+  "media": {
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1660944192434-1440a5ddde6e",
+        "description": "Grand-Place Brussels at night, representing the Belgian aspect. Use with dark gradient overlay."
+      },
+      {
+        "category": "faction_lspd",
+        "url": "https://images.pexels.com/photos/10466471/pexels-photo-10466471.jpeg",
+        "description": "Police car at night for LSPD Bruxelles faction card."
+      },
+      {
+        "category": "faction_civilian",
+        "url": "https://images.unsplash.com/photo-1666032956671-5cc9a6bcf7a4",
+        "description": "Sports car on dark street for Civilian / Mechanic faction card."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install required packages: yarn add framer-motion @phosphor-icons/react react-fast-marquee @studio-freight/react-lenis",
+    "Build the landing page in pure HTML/Tailwind with Framer Motion, avoiding rigid Shadcn cards for marketing sections.",
+    "Build the dashboard/admin panel using Shadcn components (customized for dark theme, 1px borders, no heavy shadows).",
+    "Use 'Outfit' for headings, 'Manrope' for body text, and 'JetBrains Mono' for stats. Add them to Google Fonts import in index.css.",
+    "Use Lenis for smooth scrolling on the marketing pages.",
+    "Implement language in French as requested: 'Rejoindre le serveur', 'Règlement', 'Panel Admin', 'Boutique VIP'.",
+    "DO NOT use placeholder image URLs. Use ONLY the provided media URLs.",
+    "Ensure the hero image has a proper gradient overlay so text contrast meets APCA/WCAG standards.",
+    "Implement the 'Barely There' UI trend for the admin dashboard: monospaced data, dense grids, wireframe logic.",
+    "Add data-testid attributes to ALL interactive elements."
+  ]
+}
