@@ -155,8 +155,6 @@ export default function Dashboard() {
     return <Badge className="bg-[#E4B823]/15 text-[#E4B823] border-[#E4B823]/30"><Clock size={12} className="mr-1" /> En Attente</Badge>;
   };
 
-  const isWhitelisted = mine.some((a) => a.status === "approved");
-
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20" data-testid="dashboard-page">
       {paymentStatus?.status === "checking" && (
