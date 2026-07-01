@@ -438,7 +438,7 @@ async def server_info():
         "tag": "BXL-RP",
         "country": "Belgique",
         "connect": os.environ.get("SERVER_CONNECT", "connect cfx.re/join/mxlqy9"),
-        "discord": os.environ.get("DISCORD_INVITE", "https://discord.gg/3USafSJEYF"),
+        "discord": os.environ.get("DISCORD_INVITE", "https://discord.gg/bxrp"),
         "founded": "2026",
         "max_slots": 128,
         "players_online": min(approved + 12, 128),
@@ -1104,7 +1104,7 @@ async def _get_shop_settings() -> dict:
             "_id": "global",
             "purchases_enabled": True,
             "disabled_message": "La boutique est temporairement indisponible. Ouvre un ticket Discord pour acheter ton pack VIP manuellement.",
-            "discord_ticket_url": os.environ.get("DISCORD_INVITE", "https://discord.gg/3USafSJEYF"),
+            "discord_ticket_url": os.environ.get("DISCORD_INVITE", "https://discord.gg/bxrp"),
         }
         await db.shop_settings.insert_one(doc.copy())
     return {
