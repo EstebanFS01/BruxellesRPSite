@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/api";
+import { api, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, Clock, XCircle, Shield, User as UserIcon, Crown, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function Dashboard() {
   const { user, refresh } = useAuth();
@@ -14,17 +20,90 @@ export default function Dashboard() {
   const [myFactions, setMyFactions] = useState([]);
   const [info, setInfo] = useState(null);
   const [orders, setOrders] = useState([]);
-  const [paymentStatus, setPaymentStatus] = useState(null); // {status, attempts}
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  // Patron candidatures management
+  const [patronApps, setPatronApps] = useState([]);
+  const [reviewApp, setReviewApp] = useState(null);
+  const [reviewNote, setReviewNote] = useState("");
   const loc = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const loadAll = () => {
     api.get("/applications/mine").then((r) => setMine(r.data)).catch(() => {});
     api.get("/business-applications/mine").then((r) => setBizMine(r.data)).catch(() => {});
     api.get("/factions/mine").then((r) => setMyFactions(r.data)).catch(() => {});
     api.get("/server/info").then((r) => setInfo(r.data)).catch(() => {});
     api.get("/shop/orders/mine").then((r) => setOrders(r.data)).catch(() => {});
-  }, []);
+    // Load candidatures for owned factions (patron only)
+    api.get("/business-applications").then((r) => setPatronApps(r.data)).catch(() => {});
+  };
+
+  useEffect(() => { loadAll(); /* eslint-disable-next-line */ }, []);
+
+  // Poll payment status if returning from Stripe
+  useEffect(() => {
+    const params = new URLSearchParams(loc.search);
+    const sid = params.get("session_id");
+    if (!sid) return;
+
+    let attempts = 0;
+    let stopped = false;
+    setPaymentStatus({ status: "checking" });
+
+    const poll = async () => {
+      if (stopped) return;
+      attempts += 1;
+      try {
+        const { data } = await api.get(`/shop/status/${sid}`);
+        if (data.payment_status === "paid") {
+          setPaymentStatus({ status: "paid", amount: data.amount_total, currency: data.currency });
+          toast.success("Paiement Confirmé ! Vos Avantages VIP sont Activés.");
+          api.get("/shop/orders/mine").then((r) => setOrders(r.data));
+          refresh?.();
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+        if (data.status === "expired" || data.payment_status === "failed") {
+          setPaymentStatus({ status: "failed" });
+          toast.error("Paiement Échoué ou Expiré.");
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+        if (attempts >= 6) {
+          setPaymentStatus({ status: "timeout" });
+          toast.info("Vérification du Paiement en Cours. Recharge la Page dans Quelques Instants.");
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+        setTimeout(poll, 2000);
+      } catch {
+        if (attempts < 6) setTimeout(poll, 2500);
+      }
+    };
+    poll();
+    return () => { stopped = true; };
+  }, [loc.search, navigate, refresh]);
+
+  const statusBadge = (s) => {
+    if (s === "approved") return <Badge className="bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30"><CheckCircle2 size={12} className="mr-1" /> Approuvée</Badge>;
+    if (s === "rejected") return <Badge className="bg-[#DC2626]/15 text-[#DC2626] border-[#DC2626]/30"><XCircle size={12} className="mr-1" /> Refusée</Badge>;
+    return <Badge className="bg-[#E4B823]/15 text-[#E4B823] border-[#E4B823]/30"><Clock size={12} className="mr-1" /> En Attente</Badge>;
+  };
+
+  const reviewSubmit = async (status) => {
+    if (!reviewApp) return;
+    try {
+      await api.patch(`/business-applications/${reviewApp.id}`, { status, admin_note: reviewNote });
+      toast.success(status === "approved" ? "Candidature approuvée ✓" : "Candidature refusée");
+      setReviewApp(null); setReviewNote(""); loadAll();
+    } catch (err) { toast.error(formatApiError(err)); }
+  };
+
+  const isWhitelisted = mine.some((a) => a.status === "approved");
+  const isPatron = myFactions.length > 0;
+  // Only show pending apps for patron view (exclude already processed ones)
+  const pendingPatronApps = patronApps.filter((a) => a.status === "pending");
+  const processedPatronApps = patronApps.filter((a) => a.status !== "pending");
 
   // Poll payment status if returning from Stripe
   useEffect(() => {
@@ -166,7 +245,7 @@ export default function Dashboard() {
                     <div className="mt-3 text-sm text-white/70 italic border-l-2 border-[#E4B823]/40 pl-3">"{a.admin_note}"</div>
                   )}
                 </div>
-                {status(a.status)}
+                {statusBadge(a.status)}
               </div>
             ))}
           </div>
@@ -209,12 +288,106 @@ export default function Dashboard() {
                     <div className="mt-3 text-sm text-white/70 italic border-l-2 border-[#E4B823]/40 pl-3">"{a.admin_note}"</div>
                   )}
                 </div>
-                {status(a.status)}
+                {statusBadge(a.status)}
               </div>
             ))}
           </div>
         </section>
       )}
+
+      {/* SECTION PATRON — Gestion des candidatures */}
+      {isPatron && (
+        <section className="mt-16">
+          <div className="flex items-center gap-3 mb-2">
+            <Crown size={18} className="text-[#E4B823]" />
+            <span className="text-xs uppercase tracking-[0.25em] text-[#E4B823] font-medium">// Espace Patron</span>
+          </div>
+          <h2 className="font-display text-2xl font-semibold mb-6">Candidatures de mes Entreprises</h2>
+
+          {patronApps.length === 0 ? (
+            <div className="border border-dashed border-white/10 rounded p-10 text-center text-[#8B949E]">
+              Aucune candidature reçue pour le moment.
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* En attente */}
+              {pendingPatronApps.length > 0 && (
+                <div>
+                  <div className="text-xs uppercase tracking-[0.2em] text-[#E4B823] mb-3 font-mono">En attente ({pendingPatronApps.length})</div>
+                  <div className="space-y-3">
+                    {pendingPatronApps.map((a) => (
+                      <div key={a.id} className="border border-[#E4B823]/20 rounded p-5 bg-[#0C1014] flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="font-display font-semibold">{a.username} <span className="text-[#E4B823] font-normal text-sm">· {a.faction_name}</span></div>
+                          <div className="text-sm text-[#8B949E] mt-1">Poste demandé : <span className="text-white">{a.position}</span></div>
+                          <div className="text-xs text-[#8B949E] font-mono mt-1">{new Date(a.created_at).toLocaleDateString("fr-BE")}</div>
+                          {a.motivation && <p className="text-sm text-[#8B949E] mt-2 line-clamp-2 italic">"{a.motivation}"</p>}
+                        </div>
+                        <Button size="sm" onClick={() => { setReviewApp(a); setReviewNote(""); }} className="bg-[#E4B823] text-black hover:bg-[#FCD34D] shrink-0">
+                          Examiner
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Traitées */}
+              {processedPatronApps.length > 0 && (
+                <div>
+                  <div className="text-xs uppercase tracking-[0.2em] text-[#8B949E] mb-3 font-mono">Traitées ({processedPatronApps.length})</div>
+                  <div className="space-y-2">
+                    {processedPatronApps.map((a) => (
+                      <div key={a.id} className="border border-white/5 rounded p-4 bg-[#0C1014] flex items-center justify-between gap-4">
+                        <div>
+                          <span className="font-medium">{a.username}</span>
+                          <span className="text-[#8B949E] text-sm"> · {a.faction_name} · {a.position}</span>
+                        </div>
+                        {statusBadge(a.status)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Dialog examen candidature entreprise */}
+      <Dialog open={!!reviewApp} onOpenChange={(o) => !o && setReviewApp(null)}>
+        <DialogContent className="bg-[#0C1014] border-white/10 max-w-lg">
+          {reviewApp && (
+            <>
+              <DialogHeader>
+                <Badge variant="outline" className="border-[#E4B823]/30 text-[#E4B823] text-[10px] w-fit">{reviewApp.faction_name}</Badge>
+                <DialogTitle className="font-display text-xl mt-2">Poste : {reviewApp.position}</DialogTitle>
+                <DialogDescription>par {reviewApp.username} · {reviewApp.email}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 text-sm">
+                {reviewApp.motivation && (
+                  <div>
+                    <Label className="text-xs uppercase tracking-[0.2em] text-[#E4B823]">Motivation</Label>
+                    <p className="mt-1 text-white/80 whitespace-pre-wrap">{reviewApp.motivation}</p>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Note (optionnel)</Label>
+                  <Textarea value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} rows={3} className="mt-2 bg-transparent border-white/10 focus:border-[#E4B823]" placeholder="Raison du refus, message pour le joueur..." />
+                </div>
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => reviewSubmit("rejected")} className="bg-[#DC2626]/10 border-[#DC2626]/30 text-[#DC2626] hover:bg-[#DC2626]/20">
+                  <XCircle size={16} className="mr-2" />Refuser
+                </Button>
+                <Button onClick={() => reviewSubmit("approved")} className="bg-[#10B981] text-black hover:bg-[#10B981]/90">
+                  <CheckCircle2 size={16} className="mr-2" />Approuver
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {orders.length > 0 && (
         <section className="mt-12">
