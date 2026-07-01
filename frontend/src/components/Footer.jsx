@@ -33,7 +33,7 @@ export default function Footer({ info }) {
         <div>
           <div className="text-xs uppercase tracking-[0.2em] text-[#8B949E] mb-4 font-medium">Rejoignez-Nous</div>
           <a
-            href={info?.discord || "https://discord.gg/3USafSJEYF"}
+            href={info?.discord || "https://discord.gg/bxrp"}
             target="_blank"
             rel="noreferrer"
             data-testid="footer-discord-link"
