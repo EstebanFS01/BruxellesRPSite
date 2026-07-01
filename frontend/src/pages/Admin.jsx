@@ -68,7 +68,7 @@ export default function Admin() {
     if (perms.can("manage_whitelist")) api.get("/applications").then((r) => setApps(r.data)).catch(() => {});
     if (perms.can("manage_business")) api.get("/business-applications").then((r) => setBizApps(r.data)).catch(() => {});
     if (perms.can("manage_entreprises")) api.get("/factions").then((r) => setFactions(r.data)).catch(() => {});
-    if (perms.can("manage_users")) api.get("/admin/users").then((r) => setUsers(r.data)).catch(() => {});
+    if (perms.can("manage_users") || perms.can("manage_entreprises")) api.get("/admin/users").then((r) => setUsers(r.data)).catch(() => {});
     if (perms.can("manage_admins")) api.get("/admin/admins").then((r) => setAdmins(r.data.admins)).catch(() => {});
     if (perms.can("view_audit")) api.get("/admin/audit").then((r) => setAudit(r.data)).catch(() => {});
     if (perms.can("manage_business")) api.get("/shop/settings").then((r) => setShopSettings(r.data)).catch(() => {});
@@ -870,7 +870,7 @@ function ShopSettingsPanel({ settings, onSave }) {
 function OwnerPicker({ faction, users, onSet }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const players = (users || []).filter((u) => u.role === "player" && (u.username.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase())));
+  const players = (users || []).filter((u) => u.username.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()));
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
