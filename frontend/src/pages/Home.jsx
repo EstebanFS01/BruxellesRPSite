@@ -83,7 +83,7 @@ export default function Home() {
                 {info?.connect || "connect cfx.re/join/mxlqy9"}
               </Button>
               <a
-                href={info?.discord || "https://discord.gg/bxlrp"}
+                href={info?.discord || "https://discord.gg/bxrp"}
                 target="_blank"
                 rel="noreferrer"
                 data-testid="hero-discord-btn"
