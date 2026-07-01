@@ -115,6 +115,8 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
 ALL_PERMS = [
     "manage_news",
     "manage_whitelist",
+    "manage_server_settings",
+    "manage_entreprises",
     "manage_business",
     "manage_users",
     "manage_admins",
@@ -927,7 +929,7 @@ async def get_faction(key: str):
 
 
 @api_router.post("/factions")
-async def create_faction(payload: FactionIn, admin: dict = Depends(require_perm("manage_business"))):
+async def create_faction(payload: FactionIn, admin: dict = Depends(require_perm("manage_entreprises"))):
     if await db.factions.find_one({"key": payload.key}):
         raise HTTPException(status_code=400, detail="Une faction avec cette clé existe déjà")
     doc = {
@@ -946,7 +948,7 @@ async def create_faction(payload: FactionIn, admin: dict = Depends(require_perm(
 @api_router.patch("/factions/{key}")
 async def update_faction(key: str, payload: FactionUpdate, user: dict = Depends(get_current_user)):
     f = await _faction_or_404(key)
-    if not _can_manage_faction(user, f):
+    if not _can_manage_faction(user, f) and not user_has_perm(user, "manage_entreprises"):
         raise HTTPException(status_code=403, detail="Vous n'êtes pas patron de cette entreprise")
     update = {k: v for k, v in payload.model_dump().items() if v is not None}
     if update:
@@ -960,7 +962,7 @@ async def update_faction(key: str, payload: FactionUpdate, user: dict = Depends(
 @api_router.patch("/factions/{key}/recruitment")
 async def toggle_recruitment(key: str, payload: RecruitmentToggle, user: dict = Depends(get_current_user)):
     f = await _faction_or_404(key)
-    if not _can_manage_faction(user, f):
+    if not _can_manage_faction(user, f) and not user_has_perm(user, "manage_entreprises"):
         raise HTTPException(status_code=403, detail="Vous n'êtes pas patron de cette entreprise")
     await db.factions.update_one({"key": key},
         {"$set": {"recruitment_open": payload.recruitment_open, "updated_at": _now().isoformat()}})
@@ -970,7 +972,7 @@ async def toggle_recruitment(key: str, payload: RecruitmentToggle, user: dict = 
 
 
 @api_router.delete("/factions/{key}")
-async def delete_faction(key: str, admin: dict = Depends(require_perm("manage_business"))):
+async def delete_faction(key: str, admin: dict = Depends(require_perm("manage_entreprises"))):
     f = await _faction_or_404(key)
     await db.factions.delete_one({"key": key})
     await db.business_applications.delete_many({"faction_key": key})
@@ -979,7 +981,7 @@ async def delete_faction(key: str, admin: dict = Depends(require_perm("manage_bu
 
 
 @api_router.post("/admin/factions/{key}/owner")
-async def set_faction_owner(key: str, payload: FactionOwnerSet, admin: dict = Depends(require_perm("manage_business"))):
+async def set_faction_owner(key: str, payload: FactionOwnerSet, admin: dict = Depends(require_perm("manage_entreprises"))):
     f = await _faction_or_404(key)
     target_username = None
     if payload.user_id:
@@ -1051,7 +1053,7 @@ async def get_server_settings():
     return doc
 
 @api_router.patch("/server/settings")
-async def update_server_settings(payload: dict, admin: dict = Depends(require_perm("manage_whitelist"))):
+async def update_server_settings(payload: dict, admin: dict = Depends(require_perm("manage_server_settings"))):
     allowed = {k: v for k, v in payload.items() if k in ("whitelist_open", "wl_mode")}
     await db.server_settings.update_one({"_id": "global"}, {"$set": allowed}, upsert=True)
     await audit_log(admin, "server_settings_updated", "server", "global", "paramètres serveur", allowed)
