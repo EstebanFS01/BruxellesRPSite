@@ -67,7 +67,7 @@ export default function Admin() {
     api.get("/rules").then((r) => setRules(r.data)).catch(() => {});
     if (perms.can("manage_whitelist")) api.get("/applications").then((r) => setApps(r.data)).catch(() => {});
     if (perms.can("manage_business")) api.get("/business-applications").then((r) => setBizApps(r.data)).catch(() => {});
-    if (perms.can("manage_business")) api.get("/factions").then((r) => setFactions(r.data)).catch(() => {});
+    if (perms.can("manage_entreprises")) api.get("/factions").then((r) => setFactions(r.data)).catch(() => {});
     if (perms.can("manage_users")) api.get("/admin/users").then((r) => setUsers(r.data)).catch(() => {});
     if (perms.can("manage_admins")) api.get("/admin/admins").then((r) => setAdmins(r.data.admins)).catch(() => {});
     if (perms.can("view_audit")) api.get("/admin/audit").then((r) => setAudit(r.data)).catch(() => {});
@@ -248,7 +248,7 @@ export default function Admin() {
       <h1 className="font-display text-4xl lg:text-5xl font-bold tracking-tighter">Panel Administrateur</h1>
 
       {/* WL TOGGLE RAPIDE */}
-      {perms.can("manage_whitelist") && serverSettings && (
+      {perms.can("manage_server_settings") && serverSettings && (
         <div className="mt-6 flex items-center gap-4 border border-white/10 rounded p-4 bg-[#0C1014]">
           <Settings size={16} className="text-[#8B949E]" />
           <span className="text-sm font-medium">Mode Whitelist</span>
@@ -284,12 +284,12 @@ export default function Admin() {
         ))}
       </div>
 
-      <Tabs defaultValue={perms.can("manage_whitelist") ? "apps" : perms.can("manage_business") ? "entreprises" : "news"} className="mt-12">
+      <Tabs defaultValue={perms.can("manage_whitelist") ? "apps" : perms.can("manage_entreprises") ? "entreprises" : "news"} className="mt-12">
         <TabsList className="bg-[#0C1014] border border-white/10 p-1 flex-wrap h-auto">
           {perms.can("manage_whitelist") && <TabsTrigger value="apps" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><FileText size={14} className="mr-2" />Whitelist</TabsTrigger>}
-          {perms.can("manage_business") && <TabsTrigger value="entreprises" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><Briefcase size={14} className="mr-2" />Entreprises</TabsTrigger>}
+          {perms.can("manage_entreprises") && <TabsTrigger value="entreprises" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><Briefcase size={14} className="mr-2" />Entreprises</TabsTrigger>}
           {perms.can("manage_business") && <TabsTrigger value="biz" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><Crown size={14} className="mr-2" />Candidatures</TabsTrigger>}
-          {perms.can("manage_business") && <TabsTrigger value="patrons" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><UserCog size={14} className="mr-2" />Patrons</TabsTrigger>}
+          {perms.can("manage_entreprises") && <TabsTrigger value="patrons" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><UserCog size={14} className="mr-2" />Patrons</TabsTrigger>}
           {perms.can("manage_news") && <TabsTrigger value="news" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><Newspaper size={14} className="mr-2" />Actualités</TabsTrigger>}
           {perms.can("manage_news") && <TabsTrigger value="reglement" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><BookOpen size={14} className="mr-2" />Règlement</TabsTrigger>}
           {perms.can("manage_business") && <TabsTrigger value="shop" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><ShoppingCart size={14} className="mr-2" />Boutique</TabsTrigger>}
@@ -336,7 +336,7 @@ export default function Admin() {
         )}
 
         {/* ENTREPRISES CRUD */}
-        {perms.can("manage_business") && (
+        {perms.can("manage_entreprises") && (
           <TabsContent value="entreprises" className="mt-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-[#8B949E]">Crée, modifie ou supprime les entreprises disponibles sur le serveur.</p>
@@ -474,7 +474,7 @@ export default function Admin() {
         )}
 
         {/* PATRONS */}
-        {perms.can("manage_business") && (
+        {perms.can("manage_entreprises") && (
           <TabsContent value="patrons" className="mt-6">
             <p className="text-sm text-[#8B949E] mb-4">Assignez un Joueur comme Patron d'une Entreprise.</p>
             <div className="border border-white/10 rounded bg-[#0C1014] overflow-hidden">
