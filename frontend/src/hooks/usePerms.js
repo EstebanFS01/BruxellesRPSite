@@ -6,6 +6,7 @@ const PERM_LABELS = {
   manage_whitelist:       "📋 Gérer les Candidatures Whitelist",
   manage_server_settings: "⚙️ Gérer les Paramètres Serveur (WL/FA)",
   manage_entreprises:     "🏢 Gérer les Entreprises (créer, modifier, supprimer)",
+  manage_illegal:         "💀 Gérer les Organisations Illégales",
   manage_business:        "💼 Gérer les Candidatures Entreprises & Boutique",
   manage_users:           "👥 Gérer les Utilisateurs",
   manage_admins:          "🛡️ Gérer les Administrateurs",
