@@ -117,6 +117,7 @@ ALL_PERMS = [
     "manage_whitelist",
     "manage_server_settings",
     "manage_entreprises",
+    "manage_illegal",
     "manage_business",
     "manage_users",
     "manage_admins",
@@ -292,17 +293,44 @@ class FactionIn(BaseModel):
     positions: List[str] = Field(default_factory=list)
     slots_max: Optional[int] = Field(default=None, ge=0, le=999)
     is_whitelist: bool = True
+    # Illegal org fields
+    is_illegal: bool = False
+    gang_type: Optional[str] = None        # Gang de Rue, Cartel, Mafia, Yakuza, MC, etc.
+    territory: Optional[str] = None        # Zone contrôlée
+    danger_level: Optional[str] = None     # Faible, Modéré, Élevé, Extrême
+    activities: List[str] = Field(default_factory=list)  # trafic, braquage, etc.
+    is_secret: bool = False                # Organisation secrète ou non
 
 
-class FactionUpdate(BaseModel):
+class IllegalOrgIn(BaseModel):
+    key: str = Field(min_length=2, max_length=32, pattern=r"^[a-z0-9_-]+$")
+    name: str = Field(min_length=2, max_length=64)
+    gang_type: str = Field(min_length=2, max_length=32)
+    description: str = Field(min_length=2, max_length=2000)
+    color: str = Field(default="#DC2626", max_length=16)
+    image_url: Optional[str] = Field(default=None, max_length=500)
+    territory: Optional[str] = None
+    danger_level: str = "Modéré"
+    activities: List[str] = Field(default_factory=list)
+    positions: List[str] = Field(default_factory=list)
+    slots_max: Optional[int] = Field(default=None, ge=0, le=999)
+    is_whitelist: bool = True
+    is_secret: bool = False
+
+
+class IllegalOrgUpdate(BaseModel):
     name: Optional[str] = Field(default=None, max_length=64)
-    category: Optional[str] = Field(default=None, max_length=32)
+    gang_type: Optional[str] = Field(default=None, max_length=32)
     description: Optional[str] = Field(default=None, max_length=2000)
     color: Optional[str] = Field(default=None, max_length=16)
-    icon_key: Optional[str] = Field(default=None, max_length=24)
     image_url: Optional[str] = Field(default=None, max_length=500)
+    territory: Optional[str] = None
+    danger_level: Optional[str] = None
+    activities: Optional[List[str]] = None
     positions: Optional[List[str]] = None
     slots_max: Optional[int] = Field(default=None, ge=0, le=999)
+    is_whitelist: Optional[bool] = None
+    is_secret: Optional[bool] = None
 
 
 class RecruitmentToggle(BaseModel):
@@ -1078,6 +1106,91 @@ async def update_rules(payload: dict, admin: dict = Depends(require_perm("manage
     await audit_log(admin, "rules_updated", "rules", "global", "règlement")
     return {"categories": categories}
 
+
+
+# ───────── Organisations Illégales
+
+@api_router.get("/illegal")
+async def list_illegal_orgs():
+    orgs = await db.factions.find({"is_illegal": True}, {"_id": 0}).sort("name", 1).to_list(200)
+    for o in orgs:
+        if o.get("is_secret"):
+            # Masquer les détails des orgs secrètes pour les non-admins
+            o.pop("activities", None)
+            o.pop("territory", None)
+    return [_serialize_faction(o) for o in orgs]
+
+@api_router.get("/illegal/{key}")
+async def get_illegal_org(key: str):
+    org = await db.factions.find_one({"key": key, "is_illegal": True}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation introuvable")
+    return _serialize_faction(org)
+
+@api_router.post("/illegal")
+async def create_illegal_org(payload: IllegalOrgIn, admin: dict = Depends(require_perm("manage_illegal"))):
+    if await db.factions.find_one({"key": payload.key}):
+        raise HTTPException(status_code=400, detail="Une faction avec cette clé existe déjà")
+    doc = payload.model_dump()
+    doc["is_illegal"] = True
+    doc["category"] = payload.gang_type
+    doc["icon_key"] = "skull"
+    doc["recruitment_open"] = True
+    doc["created_at"] = _now().isoformat()
+    doc["updated_at"] = _now().isoformat()
+    await db.factions.insert_one(doc)
+    await audit_log(admin, "illegal_org_created", "faction", payload.key, payload.name)
+    result = await db.factions.find_one({"key": payload.key}, {"_id": 0})
+    return _serialize_faction(result)
+
+@api_router.patch("/illegal/{key}")
+async def update_illegal_org(key: str, payload: IllegalOrgUpdate, admin: dict = Depends(require_perm("manage_illegal"))):
+    org = await db.factions.find_one({"key": key, "is_illegal": True})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation introuvable")
+    update = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if "gang_type" in update:
+        update["category"] = update["gang_type"]
+    if update:
+        update["updated_at"] = _now().isoformat()
+        await db.factions.update_one({"key": key}, {"$set": update})
+    await audit_log(admin, "illegal_org_updated", "faction", key, org.get("name"), {"fields": list(update.keys())})
+    result = await db.factions.find_one({"key": key}, {"_id": 0})
+    return _serialize_faction(result)
+
+@api_router.delete("/illegal/{key}")
+async def delete_illegal_org(key: str, admin: dict = Depends(require_perm("manage_illegal"))):
+    org = await db.factions.find_one({"key": key, "is_illegal": True})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation introuvable")
+    await db.factions.delete_one({"key": key})
+    await db.business_applications.delete_many({"faction_key": key})
+    await audit_log(admin, "illegal_org_deleted", "faction", key, org.get("name"))
+    return {"ok": True}
+
+@api_router.patch("/illegal/{key}/recruitment")
+async def toggle_illegal_recruitment(key: str, payload: RecruitmentToggle, admin: dict = Depends(require_perm("manage_illegal"))):
+    org = await db.factions.find_one({"key": key, "is_illegal": True})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation introuvable")
+    await db.factions.update_one({"key": key}, {"$set": {"recruitment_open": payload.recruitment_open, "updated_at": _now().isoformat()}})
+    await audit_log(admin, "illegal_recruitment_toggled", "faction", key, org.get("name"), {"open": payload.recruitment_open})
+    return {"ok": True, "recruitment_open": payload.recruitment_open}
+
+@api_router.post("/admin/illegal/{key}/chef")
+async def set_illegal_chef(key: str, payload: FactionOwnerSet, admin: dict = Depends(require_perm("manage_illegal"))):
+    org = await db.factions.find_one({"key": key, "is_illegal": True})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation introuvable")
+    target_username = None
+    if payload.user_id:
+        target = await db.users.find_one({"id": payload.user_id})
+        if not target:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+        target_username = target["username"]
+    await db.factions.update_one({"key": key}, {"$set": {"owner_user_id": payload.user_id, "owner_username": target_username, "updated_at": _now().isoformat()}})
+    await audit_log(admin, "illegal_chef_set", "faction", key, org.get("name"), {"chef": target_username})
+    return {"ok": True, "chef": target_username}
 
 # ───────── Faction CRUD (admin) - delete already defined above
 
