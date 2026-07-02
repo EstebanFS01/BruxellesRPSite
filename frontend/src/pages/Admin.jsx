@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, CheckCircle2, XCircle, Clock, Shield, Newspaper, FileText, Users as UsersIcon, Briefcase, History, UserCog, Crown, Lock, Unlock, ShoppingCart, BookOpen, Pencil, Settings } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, XCircle, Clock, Shield, Newspaper, FileText, Users as UsersIcon, Briefcase, History, UserCog, Crown, Lock, Unlock, ShoppingCart, BookOpen, Pencil, Settings, Skull, AlertTriangle, MapPin, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { usePerms } from "@/hooks/usePerms";
 
@@ -38,6 +38,7 @@ export default function Admin() {
   const [admins, setAdmins] = useState([]);
   const [audit, setAudit] = useState([]);
   const [factions, setFactions] = useState([]);
+  const [illegalOrgs, setIllegalOrgs] = useState([]);
   const [shopSettings, setShopSettings] = useState(null);
   const [serverSettings, setServerSettings] = useState(null);
   const [rules, setRules] = useState({ categories: [] });
@@ -56,6 +57,14 @@ export default function Admin() {
   const [factionForm, setFactionForm] = useState(EMPTY_FACTION);
   const [factionPositions, setFactionPositions] = useState("");
 
+  // Illegal CRUD state
+  const [illegalDialog, setIllegalDialog] = useState(false);
+  const [editingIllegal, setEditingIllegal] = useState(null);
+  const EMPTY_ILLEGAL = { key: "", name: "", gang_type: "Gang de Rue", description: "", color: "#DC2626", image_url: "", territory: "", danger_level: "Modéré", activities: [], positions: [], slots_max: 20, is_whitelist: true, is_secret: false };
+  const [illegalForm, setIllegalForm] = useState(EMPTY_ILLEGAL);
+  const [illegalPositions, setIllegalPositions] = useState("");
+  const [illegalActivities, setIllegalActivities] = useState("");
+
   // Rules state
   const [rulesEditing, setRulesEditing] = useState(false);
   const [rulesForm, setRulesForm] = useState([]);
@@ -68,6 +77,7 @@ export default function Admin() {
     if (perms.can("manage_whitelist")) api.get("/applications").then((r) => setApps(r.data)).catch(() => {});
     if (perms.can("manage_business")) api.get("/business-applications").then((r) => setBizApps(r.data)).catch(() => {});
     if (perms.can("manage_entreprises")) api.get("/factions").then((r) => setFactions(r.data)).catch(() => {});
+    if (perms.can("manage_illegal")) api.get("/illegal").then((r) => setIllegalOrgs(r.data)).catch(() => {});
     if (perms.can("manage_users") || perms.can("manage_entreprises")) api.get("/admin/users").then((r) => setUsers(r.data)).catch(() => {});
     if (perms.can("manage_admins")) api.get("/admin/admins").then((r) => setAdmins(r.data.admins)).catch(() => {});
     if (perms.can("view_audit")) api.get("/admin/audit").then((r) => setAudit(r.data)).catch(() => {});
@@ -176,6 +186,30 @@ export default function Admin() {
       toast.success("Paramètres serveur mis à jour");
     } catch (err) { toast.error(formatApiError(err)); }
   };
+
+  // ---- Illegal Orgs CRUD
+  const openCreateIllegal = () => { setEditingIllegal(null); setIllegalForm(EMPTY_ILLEGAL); setIllegalPositions(""); setIllegalActivities(""); setIllegalDialog(true); };
+  const openEditIllegal = (o) => {
+    setEditingIllegal(o);
+    setIllegalForm({ key: o.key, name: o.name, gang_type: o.gang_type || o.category, description: o.description, color: o.color || "#DC2626", image_url: o.image_url || "", territory: o.territory || "", danger_level: o.danger_level || "Modéré", activities: o.activities || [], positions: o.positions || [], slots_max: o.slots_max || 20, is_whitelist: o.is_whitelist !== false, is_secret: o.is_secret || false });
+    setIllegalPositions((o.positions || []).join("\n"));
+    setIllegalActivities((o.activities || []).join("\n"));
+    setIllegalDialog(true);
+  };
+  const saveIllegal = async (e) => {
+    e.preventDefault();
+    const positions = illegalPositions.split("\n").map(s => s.trim()).filter(Boolean);
+    const activities = illegalActivities.split("\n").map(s => s.trim()).filter(Boolean);
+    const payload = { ...illegalForm, positions, activities };
+    try {
+      if (editingIllegal) { await api.patch(`/illegal/${editingIllegal.key}`, payload); toast.success("Organisation mise à jour"); }
+      else { await api.post("/illegal", payload); toast.success("Organisation créée"); }
+      setIllegalDialog(false); loadAll();
+    } catch (err) { toast.error(formatApiError(err)); }
+  };
+  const deleteIllegal = async (key) => { try { await api.delete(`/illegal/${key}`); toast.success("Organisation supprimée"); loadAll(); } catch (err) { toast.error(formatApiError(err)); } };
+  const toggleIllegalRecruitment = async (key, current) => { try { await api.patch(`/illegal/${key}/recruitment`, { recruitment_open: !current }); toast.success("Recrutement " + (!current ? "ouvert" : "fermé")); loadAll(); } catch (err) { toast.error(formatApiError(err)); } };
+  const setChef = async (key, userId) => { try { await api.post(`/admin/illegal/${key}/chef`, { user_id: userId || null }); toast.success(userId ? "Chef assigné" : "Chef retiré"); loadAll(); } catch (err) { toast.error(formatApiError(err)); } };
 
   // ---- Rules
   const startEditRules = () => {
@@ -290,6 +324,7 @@ export default function Admin() {
           {perms.can("manage_entreprises") && <TabsTrigger value="entreprises" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><Briefcase size={14} className="mr-2" />Entreprises</TabsTrigger>}
           {perms.can("manage_business") && <TabsTrigger value="biz" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><Crown size={14} className="mr-2" />Candidatures</TabsTrigger>}
           {perms.can("manage_entreprises") && <TabsTrigger value="patrons" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><UserCog size={14} className="mr-2" />Patrons</TabsTrigger>}
+          {perms.can("manage_illegal") && <TabsTrigger value="illegal" className="data-[state=active]:bg-[#DC2626] data-[state=active]:text-white"><Skull size={14} className="mr-2" />Illégal</TabsTrigger>}
           {perms.can("manage_news") && <TabsTrigger value="news" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><Newspaper size={14} className="mr-2" />Actualités</TabsTrigger>}
           {perms.can("manage_news") && <TabsTrigger value="reglement" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><BookOpen size={14} className="mr-2" />Règlement</TabsTrigger>}
           {perms.can("manage_business") && <TabsTrigger value="shop" className="data-[state=active]:bg-[#E4B823] data-[state=active]:text-black"><ShoppingCart size={14} className="mr-2" />Boutique</TabsTrigger>}
@@ -503,6 +538,155 @@ export default function Admin() {
                 </TableBody>
               </Table>
             </div>
+          </TabsContent>
+        )}
+
+        {/* ILLÉGAL */}
+        {perms.can("manage_illegal") && (
+          <TabsContent value="illegal" className="mt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-[#8B949E]">Gère les gangs, cartels et organisations criminelles du serveur.</p>
+              <Button onClick={openCreateIllegal} className="bg-[#DC2626] text-white hover:bg-[#DC2626]/90"><Plus size={16} className="mr-2" />Nouvelle Organisation</Button>
+            </div>
+
+            {/* Stats rapides */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Total", value: illegalOrgs.length, icon: Skull },
+                { label: "Recrutement ouvert", value: illegalOrgs.filter(o => o.recruitment_open).length, icon: Unlock },
+                { label: "Secrètes", value: illegalOrgs.filter(o => o.is_secret).length, icon: AlertTriangle },
+              ].map((s, i) => (
+                <div key={i} className="border border-[#DC2626]/20 rounded p-4 bg-[#DC2626]/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-[#8B949E]">{s.label}</span>
+                    <s.icon size={14} className="text-[#DC2626]" />
+                  </div>
+                  <div className="font-mono text-2xl font-bold mt-2 text-[#DC2626]">{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {illegalOrgs.length === 0 && <div className="text-[#8B949E] text-sm py-8 col-span-2 text-center">Aucune organisation illégale créée</div>}
+              {illegalOrgs.map((o) => (
+                <div key={o.key} className="border border-[#DC2626]/20 rounded bg-[#0C1014] p-5 flex items-start gap-4">
+                  <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: o.color || "#DC2626" }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-display font-semibold">{o.name}</span>
+                      {o.is_secret && <Badge className="text-[10px] bg-[#8B949E]/10 text-[#8B949E] border-[#8B949E]/20"><AlertTriangle size={9} className="mr-1" />Secrète</Badge>}
+                      <Badge variant="outline" className="text-[10px] border-[#DC2626]/30 text-[#DC2626]">{o.gang_type || o.category}</Badge>
+                    </div>
+                    <p className="text-xs text-[#8B949E] mt-1 line-clamp-2">{o.description}</p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {o.territory && <span className="flex items-center gap-1 text-[10px] text-[#8B949E]"><MapPin size={10} />{o.territory}</span>}
+                      {o.danger_level && <span className="flex items-center gap-1 text-[10px] text-[#8B949E]"><Zap size={10} />{o.danger_level}</span>}
+                      {o.owner_username && <Badge className="text-[10px] bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/20"><Skull size={9} className="mr-1" />{o.owner_username}</Badge>}
+                      <button onClick={() => toggleIllegalRecruitment(o.key, o.recruitment_open)}>
+                        {o.recruitment_open
+                          ? <Badge className="text-[10px] bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20"><Unlock size={9} className="mr-1" />Recrutement ouvert</Badge>
+                          : <Badge className="text-[10px] bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/20"><Lock size={9} className="mr-1" />Recrutement fermé</Badge>}
+                      </button>
+                    </div>
+                    {(o.activities || []).length > 0 && (
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {o.activities.map((a, i) => <Badge key={i} variant="outline" className="text-[9px] border-white/10 text-[#8B949E]">{a}</Badge>)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <Button size="sm" variant="outline" onClick={() => openEditIllegal(o)} className="bg-white/5 border-white/10 hover:bg-white/10 h-8"><Pencil size={12} className="mr-1" />Modifier</Button>
+                    <OwnerPicker faction={o} users={users} onSet={(uid) => setChef(o.key, uid)} labelChef="Chef" />
+                    <ConfirmDelete onConfirm={() => deleteIllegal(o.key)} label={`Supprimer "${o.name}" et toutes ses candidatures ?`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Dialog création/édition org illégale */}
+            <Dialog open={illegalDialog} onOpenChange={setIllegalDialog}>
+              <DialogContent className="bg-[#0C1014] border-[#DC2626]/30 max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-display text-[#DC2626]">{editingIllegal ? `Modifier — ${editingIllegal.name}` : "Créer une Organisation Illégale"}</DialogTitle>
+                  <DialogDescription>Les informations secrètes ne seront pas visibles publiquement.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={saveIllegal} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Clé unique (ex: ballas)</Label>
+                      <Input required value={illegalForm.key} onChange={(e) => setIllegalForm({ ...illegalForm, key: e.target.value })} disabled={!!editingIllegal} className="mt-2 bg-transparent border-white/10 focus:border-[#DC2626] font-mono" placeholder="ballas, vagos, mafia..." />
+                    </div>
+                    <div>
+                      <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Nom</Label>
+                      <Input required value={illegalForm.name} onChange={(e) => setIllegalForm({ ...illegalForm, name: e.target.value })} className="mt-2 bg-transparent border-white/10 focus:border-[#DC2626]" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Type d'organisation</Label>
+                      <select value={illegalForm.gang_type} onChange={(e) => setIllegalForm({ ...illegalForm, gang_type: e.target.value })} className="mt-2 w-full h-10 rounded border border-white/10 bg-transparent px-3 text-sm text-white focus:border-[#DC2626] focus:outline-none">
+                        {["Gang de Rue", "Cartel", "Mafia", "Yakuza", "MC (Motards)", "Organisation Criminelle", "Milice", "Autre"].map(t => <option key={t} value={t} className="bg-[#0C1014]">{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Niveau de danger</Label>
+                      <select value={illegalForm.danger_level} onChange={(e) => setIllegalForm({ ...illegalForm, danger_level: e.target.value })} className="mt-2 w-full h-10 rounded border border-white/10 bg-transparent px-3 text-sm text-white focus:border-[#DC2626] focus:outline-none">
+                        {["Faible", "Modéré", "Élevé", "Extrême"].map(d => <option key={d} value={d} className="bg-[#0C1014]">{d}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Territoire / Zone</Label>
+                      <Input value={illegalForm.territory} onChange={(e) => setIllegalForm({ ...illegalForm, territory: e.target.value })} className="mt-2 bg-transparent border-white/10 focus:border-[#DC2626]" placeholder="Quartier Nord, Centre-Ville..." />
+                    </div>
+                    <div>
+                      <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Couleur (hex)</Label>
+                      <div className="flex gap-2 mt-2">
+                        <input type="color" value={illegalForm.color} onChange={(e) => setIllegalForm({ ...illegalForm, color: e.target.value })} className="w-10 h-10 rounded border border-white/10 bg-transparent cursor-pointer" />
+                        <Input value={illegalForm.color} onChange={(e) => setIllegalForm({ ...illegalForm, color: e.target.value })} className="bg-transparent border-white/10 focus:border-[#DC2626] font-mono" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Description</Label>
+                    <Textarea required rows={3} value={illegalForm.description} onChange={(e) => setIllegalForm({ ...illegalForm, description: e.target.value })} className="mt-2 bg-transparent border-white/10 focus:border-[#DC2626]" />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Image URL (bannière)</Label>
+                    <Input value={illegalForm.image_url} onChange={(e) => setIllegalForm({ ...illegalForm, image_url: e.target.value })} className="mt-2 bg-transparent border-white/10 focus:border-[#DC2626]" placeholder="https://..." />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Activités illégales (une par ligne)</Label>
+                    <Textarea rows={3} value={illegalActivities} onChange={(e) => setIllegalActivities(e.target.value)} className="mt-2 bg-transparent border-white/10 focus:border-[#DC2626] font-mono text-sm" placeholder={"Trafic de drogues\nBraquages\nExtorsion"} />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Rangs / Postes (un par ligne)</Label>
+                    <Textarea rows={4} value={illegalPositions} onChange={(e) => setIllegalPositions(e.target.value)} className="mt-2 bg-transparent border-white/10 focus:border-[#DC2626] font-mono text-sm" placeholder={"Parrain\nSous-chef\nSoldat\nProspect"} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs uppercase tracking-[0.2em] text-[#8B949E]">Membres max</Label>
+                      <Input type="number" min={0} max={999} value={illegalForm.slots_max} onChange={(e) => setIllegalForm({ ...illegalForm, slots_max: parseInt(e.target.value) || 0 })} className="mt-2 bg-transparent border-white/10 focus:border-[#DC2626]" />
+                    </div>
+                    <div className="space-y-3 mt-6">
+                      <div className="flex items-center gap-3">
+                        <Switch checked={illegalForm.is_whitelist} onCheckedChange={(v) => setIllegalForm({ ...illegalForm, is_whitelist: v })} />
+                        <Label className="text-sm">Candidature requise</Label>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Switch checked={illegalForm.is_secret} onCheckedChange={(v) => setIllegalForm({ ...illegalForm, is_secret: v })} />
+                        <Label className="text-sm text-[#8B949E]">Organisation secrète <span className="text-[10px]">(détails masqués)</span></Label>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIllegalDialog(false)} className="border-white/10">Annuler</Button>
+                    <Button type="submit" className="bg-[#DC2626] text-white hover:bg-[#DC2626]/90">{editingIllegal ? "Enregistrer" : "Créer"}</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         )}
 
@@ -867,7 +1051,7 @@ function ShopSettingsPanel({ settings, onSave }) {
   );
 }
 
-function OwnerPicker({ faction, users, onSet }) {
+function OwnerPicker({ faction, users, onSet, labelChef = "Patron" }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const players = (users || []).filter((u) => u.username.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()));
@@ -875,12 +1059,12 @@ function OwnerPicker({ faction, users, onSet }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">
-          <Crown size={12} className="mr-1.5" />{faction.owner_user_id ? "Changer" : "Assigner"}
+          <Crown size={12} className="mr-1.5" />{faction.owner_user_id ? "Changer" : `Assigner ${labelChef}`}
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-[#0C1014] border-white/10 max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Assigner un Patron — {faction.name}</DialogTitle>
+          <DialogTitle className="font-display">Assigner un {labelChef} — {faction.name}</DialogTitle>
         </DialogHeader>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un Joueur..." className="bg-transparent border-white/10 focus:border-[#E4B823]" />
         <div className="max-h-72 overflow-y-auto space-y-1">
